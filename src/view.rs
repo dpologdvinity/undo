@@ -57,7 +57,7 @@ pub fn list(cwd: &Path, n: usize) -> Result<()> {
 pub fn diff(cwd: &Path, id: &str, patch: bool) -> Result<()> {
     let root = root::require(cwd)?;
     let repo = paths::repo_for(&root.path);
-    fs::create_dir_all(&repo)?;
+    paths::private_repo(&repo)?;
     let _guard = lock::acquire(&repo, Duration::from_secs(10))?;
     let target = ids::resolve(&root, &repo, id)?;
     let cur = snapshot::capture_tree(&root, &repo)?;

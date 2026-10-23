@@ -1,7 +1,7 @@
 use std::path::Path;
 pub fn error(root: Option<&Path>, msg: &str) {
     let dir = crate::paths::data_home();
-    if std::fs::create_dir_all(&dir).is_err() {
+    if crate::paths::private_dir(&dir).is_err() {
         return;
     }
     let line = format!(
@@ -15,13 +15,16 @@ pub fn error(root: Option<&Path>, msg: &str) {
 }
 fn append(path: &Path, line: &str) -> std::io::Result<()> {
     use std::io::{Read, Seek, SeekFrom, Write};
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .read(true)
         .write(true)
         .truncate(false)
+        .mode(0o600)
         .open(path)?;
     file.lock()?;
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
     file.seek(SeekFrom::End(0))?;
     file.write_all(line.as_bytes())?;
     if file.metadata()?.len() > 1_048_576 {

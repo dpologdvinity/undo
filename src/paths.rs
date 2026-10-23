@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::{fs, os::unix::fs::PermissionsExt};
 pub fn data_home() -> PathBuf {
     std::env::var_os("UNDO_HOME")
         .map(PathBuf::from)
@@ -11,6 +12,16 @@ pub fn repo_for(root: &Path) -> PathBuf {
     data_home()
         .join("repos")
         .join(format!("{}.git", root_hash(root)))
+}
+pub fn private_dir(dir: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dir)?;
+    fs::set_permissions(dir, fs::Permissions::from_mode(0o700))
+}
+pub fn private_repo(repo: &Path) -> std::io::Result<()> {
+    let home = data_home();
+    private_dir(&home)?;
+    private_dir(&home.join("repos"))?;
+    private_dir(repo)
 }
 fn root_hash(root: &Path) -> String {
     use sha2::{Digest, Sha256};

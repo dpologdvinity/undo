@@ -164,3 +164,50 @@ fn file_directory_transitions() {
     success(s.undo(&[]));
     assert_eq!(after, s.tree_hash());
 }
+#[test]
+fn nested_repo_is_never_modified_by_restore() {
+    let s = Sandbox::git_root();
+    s.write("vendor/f", "old");
+    success(s.undo(&["snap"]));
+    success(s.sh("rm -rf vendor"));
+    success(s.undo(&["snap"]));
+    s.write("vendor/f", "new");
+    success(
+        s.sh("git -C vendor init -q && git -C vendor add . && git -C vendor commit -qm nested"),
+    );
+    let before = fs::read(s.root.join("vendor/f")).unwrap();
+    success(s.undo(&[]));
+    assert_eq!(before, fs::read(s.root.join("vendor/f")).unwrap());
+}
+#[test]
+fn oversized_ignored_file_survives_restore() {
+    let s = Sandbox::git_root();
+    s.write(".gitignore", "ignored\n");
+    success(s.undo(&["snap"]));
+    s.write("ignored", "small");
+    success(s.undo(&["snap"]));
+    s.write("ignored", &"x".repeat(2 * 1024 * 1024));
+    success(s.undo(&["restore", "@1"]));
+    assert_eq!(
+        fs::metadata(s.root.join("ignored")).unwrap().len(),
+        2 * 1024 * 1024
+    );
+}
+#[test]
+fn private_file_restores_without_broadening_access() {
+    let s = Sandbox::git_root();
+    s.write(".gitignore", ".env\n");
+    s.write(".env", "secret");
+    fs::set_permissions(s.root.join(".env"), fs::Permissions::from_mode(0o600)).unwrap();
+    success(s.undo(&["snap"]));
+    fs::remove_file(s.root.join(".env")).unwrap();
+    success(s.undo(&[]));
+    assert_eq!(
+        fs::metadata(s.root.join(".env"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o077,
+        0
+    );
+}

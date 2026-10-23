@@ -69,7 +69,7 @@ pub fn read_roots() -> Result<Vec<PathBuf>> {
 }
 pub fn write_roots(roots: &[PathBuf]) -> Result<()> {
     let dir = crate::paths::data_home();
-    fs::create_dir_all(&dir)?;
+    crate::paths::private_dir(&dir)?;
     let mut roots = roots.to_vec();
     roots.sort();
     roots.dedup();

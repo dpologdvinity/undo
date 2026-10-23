@@ -6,7 +6,9 @@ use crate::{
 };
 use anyhow::{Context, Result, bail};
 use std::{
+    ffi::OsString,
     fs,
+    os::unix::fs::PermissionsExt,
     path::{Component, Path, PathBuf},
     time::Duration,
 };
@@ -20,7 +22,7 @@ pub fn undo(cwd: &Path) -> Result<()> {
 fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
     let root = root::require(cwd)?;
     let repo = paths::repo_for(&root.path);
-    fs::create_dir_all(&repo)?;
+    paths::private_repo(&repo)?;
     let _guard = lock::acquire(&repo, Duration::from_secs(10))?;
     snapshot::ensure_repo(&root, &repo)?;
     let explicit = id.map(|id| ids::resolve(&root, &repo, id)).transpose()?;
@@ -49,6 +51,10 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
     }
     let mut done = Vec::new();
     let tmp = repo.join(format!("restore-index-{}", std::process::id()));
+    let stage = root
+        .path
+        .join(format!(".undo-restore-{}", std::process::id()));
+    let mut stage_created = false;
     let result = (|| -> Result<()> {
         for (status, p) in &changes {
             if *status != 'D' {
@@ -79,6 +85,12 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
         }
         let g = Git::shadow(&root, &repo).index(&tmp);
         g.run(&["read-tree", &target.tree])?;
+        fs::create_dir(&stage)?;
+        stage_created = true;
+        fs::set_permissions(&stage, fs::Permissions::from_mode(0o700))?;
+        let mut prefix = OsString::from("--prefix=");
+        prefix.push(stage.as_os_str());
+        prefix.push("/");
         for (status, p) in &changes {
             if *status == 'D' {
                 continue;
@@ -86,8 +98,28 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
             safe_parents(&root.path, p)?;
             let mut input = p.as_os_str().as_encoded_bytes().to_vec();
             input.push(0);
-            g.run_stdin(&["checkout-index", "-f", "-z", "--stdin"], &input)
-                .with_context(|| format!("writing {}", p.display()))?;
+            g.run_os_stdin(
+                &[
+                    "checkout-index".into(),
+                    "-f".into(),
+                    "-z".into(),
+                    "--stdin".into(),
+                    prefix.clone(),
+                ],
+                &input,
+            )
+            .with_context(|| format!("writing {}", p.display()))?;
+            let staged = stage.join(p);
+            if fs::symlink_metadata(&staged)?.is_file() {
+                let executable = fs::metadata(&staged)?.permissions().mode() & 0o111;
+                fs::set_permissions(&staged, fs::Permissions::from_mode(0o600 | executable))?;
+            }
+            let full = root.path.join(p);
+            if let Some(parent) = full.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            safe_parents(&root.path, p)?;
+            fs::rename(&staged, &full).with_context(|| format!("replacing {}", p.display()))?;
             done.push((*status, p.to_string_lossy().into_owned()));
         }
         Ok(())
@@ -97,7 +129,12 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
     } else {
         Ok(())
     };
-    if let Err(e) = result.and(cleanup) {
+    let stage_cleanup = if stage_created {
+        fs::remove_dir_all(&stage).map_err(anyhow::Error::from)
+    } else {
+        Ok(())
+    };
+    if let Err(e) = result.and(cleanup).and(stage_cleanup) {
         bail!(
             "restore stopped: {e:#}\n{}\nundo restore @0 returns to the pre-restore state",
             summarize(&done)
@@ -194,7 +231,10 @@ pub fn changes(
         if !matches!(status, 'A' | 'M' | 'T' | 'D') {
             bail!("unsupported diff status {status}");
         }
-        result.push((status, snapshot::path(f[1]).to_path_buf()));
+        let path = snapshot::path(f[1]);
+        if !snapshot::excluded_current(root, repo, path)? {
+            result.push((status, path.to_path_buf()));
+        }
     }
     Ok(result)
 }

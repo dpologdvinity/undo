@@ -52,7 +52,7 @@ fn rewrite(g: &Git, commits: &[Commit]) -> Result<()> {
 }
 pub fn prune(root: &Root) -> Result<()> {
     let repo = paths::repo_for(&root.path);
-    fs::create_dir_all(&repo)?;
+    paths::private_repo(&repo)?;
     let _guard = lock::acquire(&repo, Duration::from_secs(10))?;
     fs::write(repo.join("last-prune"), paths::now().to_string())?;
     if !repo.join("HEAD").exists() {

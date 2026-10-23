@@ -26,3 +26,6 @@ tempfile = "3"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[package.metadata.dist]
+formula = "undo"

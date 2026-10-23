@@ -49,7 +49,7 @@ undo status                  # protection, hooks, storage, limits, errors
 undo prune                   # apply retention now
 ```
 
-Snapshot IDs are `@N` (`@0` is newest) or unique commit prefixes of at least four hex characters. `undo restore` saves the current tree first, so it is reversible. It restores file contents, executable bits, and symlinks. It never restores Git refs, HEAD, commits, stashes, or the project's staging area.
+Snapshot IDs are `@N` (`@0` is newest) or unique commit prefixes of at least four hex characters. `undo restore` saves the current tree first, so it is reversible. It restores file contents, executable bits, and symlinks. Restored regular files are owner-readable and owner-writable; Git cannot record their original sharing permissions. It never restores Git refs, HEAD, commits, stashes, or the project's staging area.
 
 ## How it works
 

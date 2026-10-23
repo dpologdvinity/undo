@@ -179,6 +179,18 @@ impl Git {
         }
         Ok(o.stdout)
     }
+    pub fn status_path(&self, args: &[&str], path: &Path) -> Result<bool> {
+        let mut args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        args.push(path.as_os_str().into());
+        Ok(self.output_os(&args, &[])?.status.success())
+    }
+    pub fn run_os_stdin(&self, args: &[OsString], input: &[u8]) -> Result<()> {
+        let o = self.output_os(args, input)?;
+        if !o.status.success() {
+            bail!("git: {}", String::from_utf8_lossy(&o.stderr).trim());
+        }
+        Ok(())
+    }
     pub fn bytes(&self, args: &[&str]) -> Result<Vec<u8>> {
         self.bytes_stdin(args, &[])
     }

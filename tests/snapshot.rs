@@ -86,3 +86,51 @@ fn outside_silent() {
     assert!(o.stdout.is_empty());
     assert!(o.stderr.is_empty());
 }
+#[test]
+fn large_ignored_file_is_not_kept_in_shadow_index() {
+    let s = Sandbox::git_root();
+    s.write(".gitignore", "ignored\n");
+    s.write("ignored", "small");
+    success(s.undo(&["snap"]));
+    s.write("ignored", &"x".repeat(2 * 1024 * 1024));
+    success(s.undo(&["snap"]));
+    assert!(!files(&s).lines().any(|p| p == "ignored"));
+}
+#[test]
+fn project_attributes_do_not_normalize_snapshot_bytes() {
+    let s = Sandbox::git_root();
+    s.write(".gitattributes", "*.txt text eol=lf\n");
+    fs::write(s.root.join("crlf.txt"), b"a\r\nb\r\n").unwrap();
+    success(s.undo(&["snap"]));
+    success(s.sh("rm crlf.txt"));
+    success(s.undo(&[]));
+    assert_eq!(fs::read(s.root.join("crlf.txt")).unwrap(), b"a\r\nb\r\n");
+}
+#[test]
+fn shadow_data_is_private() {
+    use std::os::unix::fs::PermissionsExt;
+    let s = Sandbox::git_root();
+    s.write(".gitignore", ".env\n");
+    s.write(".env", "secret");
+    fs::set_permissions(s.root.join(".env"), fs::Permissions::from_mode(0o600)).unwrap();
+    success(s.undo(&["snap"]));
+    for p in [s.data(), s.data().join("repos"), s.repo()] {
+        assert_eq!(fs::metadata(p).unwrap().permissions().mode() & 0o077, 0);
+    }
+}
+#[test]
+fn existing_shadow_files_becoming_nested_repo_are_removed() {
+    let s = Sandbox::git_root();
+    s.write("vendor/f", "old");
+    success(s.undo(&["snap"]));
+    success(
+        s.sh("git -C vendor init -q && git -C vendor add . && git -C vendor commit -qm nested"),
+    );
+    success(s.undo(&["snap"]));
+    assert!(!files(&s).lines().any(|p| p == "vendor/f"));
+    assert!(
+        fs::read_to_string(s.repo().join("undo-nested"))
+            .unwrap()
+            .contains("vendor")
+    );
+}

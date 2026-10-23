@@ -5,9 +5,10 @@ use crate::{
 };
 use anyhow::{Result, bail};
 use std::{
+    collections::HashSet,
     fs,
     io::Read,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     time::{Duration, Instant},
 };
 pub const HEAVY: &[&str] = &[
@@ -69,6 +70,7 @@ pub fn parse_claude_input(json: &str) -> (Option<PathBuf>, Option<String>) {
     (cwd, cmd)
 }
 pub fn ensure_repo(root: &Root, repo: &Path) -> Result<()> {
+    paths::private_repo(repo)?;
     if !repo.join("HEAD").exists() {
         Git::shadow(root, repo).init_bare()?;
         fs::write(
@@ -76,7 +78,49 @@ pub fn ensure_repo(root: &Root, repo: &Path) -> Result<()> {
             root.path.as_os_str().as_encoded_bytes(),
         )?;
     }
+    fs::write(
+        repo.join("info/attributes"),
+        "* -text -filter -ident -working-tree-encoding\n",
+    )?;
     Ok(())
+}
+fn heavy(path: &Path) -> bool {
+    path.components()
+        .any(|c| matches!(c, Component::Normal(name) if HEAVY.iter().any(|heavy| name == *heavy)))
+}
+pub fn nested_boundary(root: &Path, path: &Path) -> Option<PathBuf> {
+    let mut current = PathBuf::new();
+    for component in path.components() {
+        current.push(component.as_os_str());
+        if root.join(&current).join(".git").exists() {
+            return Some(current);
+        }
+    }
+    None
+}
+pub fn excluded_current(root: &Root, repo: &Path, path: &Path) -> Result<bool> {
+    if nested_boundary(&root.path, path).is_some() {
+        return Ok(true);
+    }
+    if !root.is_git {
+        return Ok(heavy(path));
+    }
+    if Git::plain()
+        .at(&root.path)
+        .status_path(&["ls-files", "--error-unmatch", "--"], path)?
+    {
+        return Ok(false);
+    }
+    if !Git::shadow(root, repo).status_path(&["check-ignore", "--no-index", "--"], path)? {
+        return Ok(false);
+    }
+    if heavy(path) {
+        return Ok(true);
+    }
+    Ok(
+        fs::symlink_metadata(root.path.join(path))
+            .is_ok_and(|m| m.is_file() && m.len() > 1_048_576),
+    )
 }
 pub fn path(bytes: &[u8]) -> &Path {
     use std::os::unix::ffi::OsStrExt;
@@ -110,6 +154,7 @@ pub fn capture_tree(root: &Root, repo: &Path) -> Result<String> {
         )?;
     }
     g.run(&["add", "-A"])?;
+    let mut real_tracked = HashSet::new();
     if root.is_git {
         let tracked = Git::plain()
             .at(&root.path)
@@ -121,6 +166,10 @@ pub fn capture_tree(root: &Root, repo: &Path) -> Result<String> {
             }
             if let Some(i) = entry.iter().position(|b| *b == b'\t') {
                 let p = &entry[i + 1..];
+                real_tracked.insert(p.to_vec());
+                if nested_boundary(&root.path, path(p)).is_some() {
+                    continue;
+                }
                 if fs::symlink_metadata(root.path.join(path(p)))
                     .is_ok_and(|m| m.is_file() || m.file_type().is_symlink())
                 {
@@ -132,12 +181,24 @@ pub fn capture_tree(root: &Root, repo: &Path) -> Result<String> {
         add_paths(&g, &force)?;
     }
     let entries = g.bytes(&["ls-files", "-s", "-z"])?;
-    let mut nested = Vec::new();
-    for e in nul_paths(&entries).filter(|e| e.starts_with(b"160000 ")) {
+    let mut nested_dirs = HashSet::new();
+    for e in nul_paths(&entries) {
         if let Some(i) = e.iter().position(|b| *b == b'\t') {
-            nested.extend_from_slice(&e[i + 1..]);
-            nested.push(0);
+            let p = path(&e[i + 1..]);
+            if e.starts_with(b"160000 ") {
+                nested_dirs.insert(p.to_path_buf());
+            }
+            if let Some(boundary) = nested_boundary(&root.path, p) {
+                nested_dirs.insert(boundary);
+            }
         }
+    }
+    let mut nested = Vec::new();
+    let mut sorted: Vec<_> = nested_dirs.into_iter().collect();
+    sorted.sort();
+    for p in sorted {
+        nested.extend_from_slice(p.as_os_str().as_encoded_bytes());
+        nested.push(0);
     }
     if !nested.is_empty() {
         g.run_stdin(
@@ -145,6 +206,7 @@ pub fn capture_tree(root: &Root, repo: &Path) -> Result<String> {
                 "--literal-pathspecs",
                 "rm",
                 "--cached",
+                "-r",
                 "-f",
                 "-q",
                 "--pathspec-from-file=-",
@@ -158,6 +220,34 @@ pub fn capture_tree(root: &Root, repo: &Path) -> Result<String> {
         .map(|b| if *b == 0 { b'\n' } else { *b })
         .collect();
     fs::write(repo.join("undo-nested"), nested_lines)?;
+    let ignored_tracked = g.bytes(&["ls-files", "-c", "-i", "--exclude-standard", "-z"])?;
+    let mut drop_paths = Vec::new();
+    for p in nul_paths(&ignored_tracked) {
+        if real_tracked.contains(p) {
+            continue;
+        }
+        let rel = path(p);
+        let too_large = fs::symlink_metadata(root.path.join(rel))
+            .is_ok_and(|m| m.is_file() && m.len() > 1_048_576);
+        if heavy(rel) || too_large {
+            drop_paths.extend_from_slice(p);
+            drop_paths.push(0);
+        }
+    }
+    if !drop_paths.is_empty() {
+        g.run_stdin(
+            &[
+                "--literal-pathspecs",
+                "rm",
+                "--cached",
+                "-f",
+                "-q",
+                "--pathspec-from-file=-",
+                "--pathspec-file-nul",
+            ],
+            &drop_paths,
+        )?;
+    }
     if root.is_git {
         let mut args = vec![
             "ls-files".to_owned(),
@@ -215,7 +305,7 @@ pub fn snap_locked(root: &Root, repo: &Path, meta: &Meta) -> Result<(String, Opt
 }
 pub fn snap(root: &Root, meta: &Meta) -> Result<Option<String>> {
     let repo = paths::repo_for(&root.path);
-    fs::create_dir_all(&repo)?;
+    paths::private_repo(&repo)?;
     let _lock = lock::acquire(&repo, Duration::from_secs(2))?;
     Ok(snap_locked(root, &repo, meta)?.1)
 }
