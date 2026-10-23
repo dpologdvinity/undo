@@ -67,8 +67,23 @@ enum Target {
     Claude,
 }
 
-fn dispatch(_cli: Cli) -> anyhow::Result<()> {
-    todo!()
+fn dispatch(cli: Cli) -> anyhow::Result<()> {
+    use undo_cli::root;
+    match cli.command {
+        Some(Commands::Protect { dir, force }) => root::protect(&dir, force),
+        Some(Commands::Unprotect { dir }) => root::unprotect(&dir),
+        Some(Commands::Status) => {
+            if let Some(r) = root::find_root(&std::env::current_dir()?) {
+                println!(
+                    "root: {} ({})",
+                    r.path.display(),
+                    if r.is_git { "git" } else { "protected" }
+                );
+            }
+            Ok(())
+        }
+        _ => todo!(),
+    }
 }
 
 fn main() -> ExitCode {
