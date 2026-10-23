@@ -113,6 +113,9 @@ impl Git {
         c
     }
     pub fn output(&self, args: &[&str], input: &[u8]) -> Result<Output> {
+        self.output_os(&args.iter().map(OsString::from).collect::<Vec<_>>(), input)
+    }
+    pub fn output_os(&self, args: &[OsString], input: &[u8]) -> Result<Output> {
         let deadline = *DEADLINE.lock().unwrap();
         if deadline.is_some_and(|d| Instant::now() >= d) {
             bail!("timed out");
@@ -166,6 +169,15 @@ impl Git {
             stdout,
             stderr,
         })
+    }
+    pub fn bytes_paths(&self, args: &[&str], paths: &[PathBuf]) -> Result<Vec<u8>> {
+        let mut args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        args.extend(paths.iter().map(|p| p.as_os_str().into()));
+        let o = self.output_os(&args, &[])?;
+        if !o.status.success() {
+            bail!("git: {}", String::from_utf8_lossy(&o.stderr).trim());
+        }
+        Ok(o.stdout)
     }
     pub fn bytes(&self, args: &[&str]) -> Result<Vec<u8>> {
         self.bytes_stdin(args, &[])

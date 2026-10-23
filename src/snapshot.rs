@@ -279,6 +279,45 @@ pub fn cli_snap(trigger: String, mut cmd: Option<String>, cwd: Option<PathBuf>) 
         );
     }
 }
+#[derive(Clone, Debug)]
+pub struct Commit {
+    pub id: String,
+    pub tree: String,
+    pub ct: u64,
+    pub message: String,
+}
+impl Commit {
+    pub fn field(&self, name: &str) -> &str {
+        self.message
+            .lines()
+            .find_map(|l| l.strip_prefix(name))
+            .unwrap_or("")
+    }
+}
+pub fn history(root: &Root, repo: &Path) -> Result<Vec<Commit>> {
+    let g = Git::shadow(root, repo);
+    if !repo.join("HEAD").exists() || !g.run_status(&["rev-parse", "-q", "--verify", REF])? {
+        return Ok(vec![]);
+    }
+    let data = g.bytes(&[
+        "log",
+        "--first-parent",
+        "-z",
+        "--format=%H%x00%T%x00%ct%x00%B",
+        REF,
+    ])?;
+    let fields: Vec<_> = data.split(|b| *b == 0).collect();
+    let mut commits = Vec::new();
+    for f in fields.as_chunks::<4>().0 {
+        commits.push(Commit {
+            id: String::from_utf8(f[0].to_vec())?,
+            tree: String::from_utf8(f[1].to_vec())?,
+            ct: std::str::from_utf8(f[2])?.parse()?,
+            message: String::from_utf8(f[3].to_vec())?,
+        });
+    }
+    Ok(commits)
+}
 #[cfg(test)]
 mod tests {
     use super::*;

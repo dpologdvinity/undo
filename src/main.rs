@@ -100,6 +100,14 @@ fn dispatch(cli: Cli) -> anyhow::Result<()> {
             }
             Ok(())
         }
+        Some(Commands::Restore { id, paths }) => {
+            undo_cli::git::check_version()?;
+            undo_cli::restore::restore(&std::env::current_dir()?, &id, &paths)
+        }
+        None => {
+            undo_cli::git::check_version()?;
+            undo_cli::restore::undo(&std::env::current_dir()?)
+        }
         _ => todo!(),
     }
 }
