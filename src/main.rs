@@ -115,7 +115,15 @@ fn dispatch(cli: Cli) -> anyhow::Result<()> {
             let cwd = dir.unwrap_or(std::env::current_dir()?);
             undo_cli::prune::prune(&root::require(&cwd)?)
         }
-        _ => todo!(),
+        Some(Commands::Init { target }) => {
+            undo_cli::git::check_version()?;
+            undo_cli::init::init(match target {
+                Target::Zsh => "zsh",
+                Target::Bash => "bash",
+                Target::Fish => "fish",
+                Target::Claude => "claude",
+            })
+        }
     }
 }
 
