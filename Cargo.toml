@@ -6,6 +6,7 @@ rust-version = "1.89"
 license = "MIT"
 description = "Ctrl-Z for your terminal and your AI agent"
 repository = "https://github.com/dpologdvinity/undo"
+homepage = "https://github.com/dpologdvinity/undo"
 
 [[bin]]
 name = "undo"
@@ -20,3 +21,8 @@ sha2 = "0.11"
 
 [dev-dependencies]
 tempfile = "3"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
