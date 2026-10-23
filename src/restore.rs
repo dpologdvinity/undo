@@ -111,19 +111,11 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
     println!(
         "restored {label} {} ({}{})\n{}\nrun `undo` again to go back",
         &target.id[..8],
-        age(paths::now().saturating_sub(target.ct)),
+        crate::view::age(paths::now().saturating_sub(target.ct)),
         context,
         summarize(&done)
     );
     Ok(())
-}
-pub fn age(secs: u64) -> String {
-    match secs {
-        0..60 => "just now".into(),
-        60..3600 => format!("{}m ago", secs / 60),
-        3600..86400 => format!("{}h ago", secs / 3600),
-        _ => format!("{}d ago", secs / 86400),
-    }
 }
 fn relative_paths(root: &Path, cwd: &Path, paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let cwd = fs::canonicalize(cwd)?;

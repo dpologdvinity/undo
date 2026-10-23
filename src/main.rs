@@ -91,14 +91,16 @@ fn dispatch(cli: Cli) -> anyhow::Result<()> {
         }
         Some(Commands::Unprotect { dir }) => root::unprotect(&dir),
         Some(Commands::Status) => {
-            if let Some(r) = root::find_root(&std::env::current_dir()?) {
-                println!(
-                    "root: {} ({})",
-                    r.path.display(),
-                    if r.is_git { "git" } else { "protected" }
-                );
-            }
-            Ok(())
+            undo_cli::git::check_version()?;
+            undo_cli::view::status(&std::env::current_dir()?)
+        }
+        Some(Commands::List { n }) => {
+            undo_cli::git::check_version()?;
+            undo_cli::view::list(&std::env::current_dir()?, n)
+        }
+        Some(Commands::Diff { id, patch }) => {
+            undo_cli::git::check_version()?;
+            undo_cli::view::diff(&std::env::current_dir()?, &id, patch)
         }
         Some(Commands::Restore { id, paths }) => {
             undo_cli::git::check_version()?;

@@ -6,3 +6,4 @@ pub mod paths;
 pub mod restore;
 pub mod root;
 pub mod snapshot;
+pub mod view;
