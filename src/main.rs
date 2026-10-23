@@ -68,9 +68,27 @@ enum Target {
 }
 
 fn dispatch(cli: Cli) -> anyhow::Result<()> {
-    use undo_cli::root;
+    use undo_cli::{root, snapshot};
     match cli.command {
-        Some(Commands::Protect { dir, force }) => root::protect(&dir, force),
+        Some(Commands::Snap { trigger, cmd, cwd }) => {
+            snapshot::cli_snap(trigger, cmd, cwd);
+            Ok(())
+        }
+        Some(Commands::Protect { dir, force }) => {
+            undo_cli::git::check_version()?;
+            root::protect(&dir, force)?;
+            let path = std::fs::canonicalize(dir)?;
+            let r = root::require(&path)?;
+            snapshot::snap(
+                &r,
+                &snapshot::Meta {
+                    trigger: "protect".into(),
+                    cmd: None,
+                    cwd: path,
+                },
+            )?;
+            Ok(())
+        }
         Some(Commands::Unprotect { dir }) => root::unprotect(&dir),
         Some(Commands::Status) => {
             if let Some(r) = root::find_root(&std::env::current_dir()?) {

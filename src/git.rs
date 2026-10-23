@@ -76,6 +76,12 @@ impl Git {
         }
         g
     }
+    pub fn init_bare(&self) -> Result<()> {
+        let mut g = self.clone();
+        g.env.retain(|(key, _)| key != "GIT_WORK_TREE");
+        g.run(&["init", "--bare", "-q"])?;
+        Ok(())
+    }
     pub fn index(self, path: &Path) -> Self {
         self.env("GIT_INDEX_FILE", path.as_os_str())
     }
