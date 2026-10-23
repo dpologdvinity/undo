@@ -2,7 +2,6 @@ use anyhow::{Context, Result, bail};
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 #[derive(Clone, Debug)]
@@ -11,34 +10,21 @@ pub struct Root {
     pub is_git: bool,
     pub git_common_dir: Option<PathBuf>,
 }
-fn plain() -> Command {
-    let mut c = Command::new("git");
-    for key in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
-        c.env_remove(key);
-    }
-    c
-}
 pub fn find_root(cwd: &Path) -> Option<Root> {
     let cwd = fs::canonicalize(cwd).ok()?;
-    let git = plain()
-        .arg("-C")
-        .arg(&cwd)
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
+    let git = crate::git::Git::plain()
+        .at(&cwd)
+        .bytes(&["rev-parse", "--show-toplevel"])
         .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| path_output(&o.stdout))
+        .and_then(|o| path_output(&o))
         .and_then(|p| fs::canonicalize(p).ok());
     let (path, is_git) = pick_innermost(git, &read_roots().ok()?, &cwd)?;
     let git_common_dir = if is_git {
-        plain()
-            .arg("-C")
-            .arg(&cwd)
-            .args(["rev-parse", "--git-common-dir"])
-            .output()
+        crate::git::Git::plain()
+            .at(&cwd)
+            .bytes(&["rev-parse", "--git-common-dir"])
             .ok()
-            .filter(|o| o.status.success())
-            .and_then(|o| path_output(&o.stdout))
+            .and_then(|o| path_output(&o))
             .and_then(|p| fs::canonicalize(cwd.join(p)).ok())
     } else {
         None
