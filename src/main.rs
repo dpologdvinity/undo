@@ -110,6 +110,11 @@ fn dispatch(cli: Cli) -> anyhow::Result<()> {
             undo_cli::git::check_version()?;
             undo_cli::restore::undo(&std::env::current_dir()?)
         }
+        Some(Commands::Prune { root: dir }) => {
+            undo_cli::git::check_version()?;
+            let cwd = dir.unwrap_or(std::env::current_dir()?);
+            undo_cli::prune::prune(&root::require(&cwd)?)
+        }
         _ => todo!(),
     }
 }

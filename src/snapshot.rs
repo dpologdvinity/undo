@@ -210,6 +210,7 @@ pub fn snap_locked(root: &Root, repo: &Path, meta: &Meta) -> Result<(String, Opt
             .as_deref()
             .unwrap_or("0000000000000000000000000000000000000000"),
     ])?;
+    crate::prune::spawn_if_due(root, repo);
     Ok((tree, Some(commit)))
 }
 pub fn snap(root: &Root, meta: &Meta) -> Result<Option<String>> {
