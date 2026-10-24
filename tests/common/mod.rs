@@ -50,6 +50,19 @@ impl Sandbox {
     pub fn sh(&self, script: &str) -> Output {
         self.command("sh").args(["-c", script]).output().unwrap()
     }
+    pub fn git_shim(&self, script: &str) -> std::ffi::OsString {
+        use std::os::unix::fs::PermissionsExt;
+        let git = success(self.sh("command -v git"));
+        let git = git.trim().replace('\'', "'\\''");
+        let bin = self.dir.path().join("bin");
+        fs::create_dir_all(&bin).unwrap();
+        let shim = bin.join("git");
+        fs::write(&shim, format!("#!/bin/sh\n{script}\nexec '{git}' \"$@\"\n")).unwrap();
+        fs::set_permissions(shim, fs::Permissions::from_mode(0o700)).unwrap();
+        let mut paths = vec![bin];
+        paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+        std::env::join_paths(paths).unwrap()
+    }
     pub fn write(&self, rel: &str, contents: &str) {
         let p = self.root.join(rel);
         fs::create_dir_all(p.parent().unwrap()).unwrap();

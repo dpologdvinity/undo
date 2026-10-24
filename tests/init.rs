@@ -35,6 +35,29 @@ fn invalid_settings_untouched() {
     assert_eq!(fs::read_to_string(p).unwrap(), "invalid");
 }
 #[test]
+fn installer_refuses_existing_temporary_symlink() {
+    let s = Sandbox::new();
+    let settings = s.home.join(".claude/settings.json");
+    fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    fs::write(&settings, "{}").unwrap();
+    let victim = s.home.join("unrelated.json");
+    fs::write(&victim, "keep this file").unwrap();
+    let path = s.git_shim(
+        "ln -s \"$UNDO_TEST_VICTIM\" \"$HOME/.claude/settings.json.tmp-$PPID\" || exit 1",
+    );
+    let output = s
+        .command(env!("CARGO_BIN_EXE_undo"))
+        .args(["init", "claude"])
+        .env("PATH", path)
+        .env("UNDO_TEST_VICTIM", victim.as_os_str())
+        .output()
+        .unwrap();
+
+    assert_eq!(fs::read_to_string(victim).unwrap(), "keep this file");
+    assert_eq!(fs::read_to_string(settings).unwrap(), "{}");
+    assert!(!output.status.success());
+}
+#[test]
 fn shell_syntax() {
     let s = Sandbox::new();
     for shell in ["bash", "zsh", "fish"] {

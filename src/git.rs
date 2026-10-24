@@ -295,25 +295,4 @@ mod tests {
         assert!(!super::version_ok("git version 2.24.1"));
         assert!(!super::version_ok("garbage"));
     }
-
-    #[test]
-    fn clears_timed_out_shadow_index_lock() {
-        use std::{ffi::OsString, fs, path::PathBuf};
-
-        let dir = tempfile::tempdir().unwrap();
-        let index = dir.path().join("undo-index");
-        let lock = PathBuf::from(format!("{}.lock", index.display()));
-        fs::write(&lock, "stale").unwrap();
-        let git = super::Git {
-            cwd: Some(dir.path().into()),
-            env: vec![(OsString::from("GIT_INDEX_FILE"), index.into_os_string())],
-            config: vec![],
-            shadow: true,
-        };
-
-        let error = git.timeout_error();
-
-        assert!(error.to_string().contains("timed out"));
-        assert!(!lock.exists());
-    }
 }

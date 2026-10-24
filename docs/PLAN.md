@@ -209,3 +209,9 @@ Commits: `docs: add readme`, `ci: add test workflow`, `build: configure dist rel
 2. In a real Claude Code session after `undo init claude`: ask the agent to run `git reset --hard` with uncommitted edits, then run `undo`.
 3. WSL: repeat step 1 in a repo under `/mnt/c/...` and record the timing in the README if it is slow.
 4. Tag `v0.1.0` **only when the maintainer asks**. Never push or tag without explicit approval.
+
+Verification record (2026-10-24):
+- Interactive bash and zsh in disposable repositories: prompt hook, `rm -rf src`, then `undo` restored the original files.
+- Linux filesystem, 10,001 tracked files: warm no-change snapshots measured 144–270 ms after the force-add optimization.
+- Real Claude Code CLI in headless mode, with temporary HOME and UNDO_HOME: the installed PreToolUse hook captured uncommitted contents before `git reset --hard`; `undo` recovered those contents.
+- WSL2 `/mnt/c` with 10,001 tracked files: the initial snapshot exceeded the 10 s deadline. The slow filesystem measurement is recorded in README. This remains a documented performance limit, so the WSL check is not a performance pass.

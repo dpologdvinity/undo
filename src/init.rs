@@ -69,8 +69,7 @@ fn install_claude() -> Result<()> {
     let tmp = path.with_file_name(format!("settings.json.tmp-{}", std::process::id()));
     let mut file = fs::OpenOptions::new()
         .write(true)
-        .create(true)
-        .truncate(true)
+        .create_new(true)
         .mode(0o600)
         .open(&tmp)?;
     let result = (|| -> Result<()> {

@@ -9,7 +9,7 @@
 
 ## Install
 
-Requires Linux or macOS and Git 2.25 or newer. WSL uses the Linux build. After the first release, install with:
+Requires Linux or macOS and Git 2.25 or newer. WSL uses the Linux build. Install with:
 
 ```sh
 brew install dpologdvinity/tap/undo
@@ -17,7 +17,7 @@ brew install dpologdvinity/tap/undo
 cargo install undo-cli
 ```
 
-Prebuilt binaries for x86_64 and aarch64 Linux and macOS will be on [GitHub Releases](https://github.com/dpologdvinity/undo/releases). From source: `cargo install --path .`.
+Prebuilt binaries for x86_64 and aarch64 Linux and macOS are available on [GitHub Releases](https://github.com/dpologdvinity/undo/releases). From source: `cargo install --path .`.
 
 ## Set up
 
