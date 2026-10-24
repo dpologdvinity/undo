@@ -90,13 +90,17 @@ pub fn prune(root: &Root) -> Result<()> {
     Ok(())
 }
 pub fn spawn_if_due(root: &Root, repo: &std::path::Path) {
-    let last = fs::read_to_string(repo.join("last-prune"))
-        .ok()
-        .and_then(|s| s.trim().parse::<u64>().ok())
-        .unwrap_or(0);
+    let last = match fs::read_to_string(repo.join("last-prune")) {
+        Ok(s) => s.trim().parse::<u64>().unwrap_or(0),
+        Err(_) => {
+            let _ = fs::write(repo.join("last-prune"), paths::now().to_string());
+            return;
+        }
+    };
     if paths::now().saturating_sub(last) < 86400 {
         return;
     }
+    let _ = fs::write(repo.join("last-prune"), paths::now().to_string());
     if let Ok(exe) = std::env::current_exe() {
         use std::os::unix::process::CommandExt;
         let _ = std::process::Command::new(exe)

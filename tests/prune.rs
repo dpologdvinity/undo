@@ -27,20 +27,17 @@ fn retention_rewrites_exact_dates() {
         if let Some(p) = &parent {
             c.args(["-p", p]);
         }
-        parent = Some(success(c.output().unwrap()).trim().to_string());
+        let commit = success(c.output().unwrap()).trim().to_string();
+        success(
+            s.command("git")
+                .arg("--git-dir")
+                .arg(&repo)
+                .args(["update-ref", "refs/heads/snapshots", &commit])
+                .output()
+                .unwrap(),
+        );
+        parent = Some(commit);
     }
-    success(
-        s.command("git")
-            .arg("--git-dir")
-            .arg(&repo)
-            .args([
-                "update-ref",
-                "refs/heads/snapshots",
-                parent.as_ref().unwrap(),
-            ])
-            .output()
-            .unwrap(),
-    );
     success(s.undo(&["prune"]));
     let dates = success(
         s.command("git")
