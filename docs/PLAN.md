@@ -215,3 +215,24 @@ Verification record (2026-10-24):
 - Linux filesystem, 10,001 tracked files: warm no-change snapshots measured 144–270 ms after the force-add optimization.
 - Real Claude Code CLI in headless mode, with temporary HOME and UNDO_HOME: the installed PreToolUse hook captured uncommitted contents before `git reset --hard`; `undo` recovered those contents.
 - WSL2 `/mnt/c` with 10,001 tracked files: the initial snapshot exceeded the 10 s deadline. The slow filesystem measurement is recorded in README. This remains a documented performance limit, so the WSL check is not a performance pass.
+
+## Task 15: Curl installer
+
+Files: `dist-workspace.toml`.
+First assert that the release plan includes `undo-cli-installer.sh` (expected to fail), then enable cargo-dist's shell installer with `install-path = "~/.local/bin"`. Validate the generated installer by installing the existing stable release inside a temporary HOME and UNDO_HOME. Keep existing Homebrew support.
+
+Commit: `build: add curl installer to releases`
+
+## Task 16: Signed apt packages
+
+Files: `scripts/build-apt-repo.py`, `tests/distribution.py`, `packaging/apt-key.asc`, `.github/workflows/publish-apt.yml`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `dist-workspace.toml`.
+Write failing tests for amd64/arm64 package metadata, archive checksum rejection, reproducible packages, signed apt metadata, and isolated apt update/download. Implement the package/feed builder using Python's standard library, dpkg-deb, apt-ftparchive, and gpg. Reuse cargo-dist's custom publish job support; provide workflow_dispatch for the current stable release. Configure GitHub Pages and a dedicated signing secret. Never disable apt signature verification.
+
+Commit: `build: publish signed apt packages`
+
+## Task 17: Publish and document installation
+
+Files: `README.md`, `docs/ROADMAP.md`.
+Merge through protected-master checks. Add the generated shell installer and Debian packages to the existing stable release, deploy the apt feed, and verify both public curl installation and signed apt update/download in a temporary sandbox. Document curl and apt commands, supported Debian/Ubuntu versions, and the signing-key fingerprint. Do not create or move a release tag.
+
+Commit: `docs: document apt and curl installation`

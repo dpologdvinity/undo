@@ -1,5 +1,7 @@
 # undo — Specification (v0.1)
 
+Distribution extension (2026-10-24, requested after v0.1): cargo-dist also generates a POSIX shell installer for Linux and macOS, installed under `~/.local/bin`. Stable Linux releases are packaged as `undo` Debian packages for amd64 and arm64, depending on Git >= 2.25, libc6 >= 2.35, and libgcc-s1. A signed apt repository is hosted at `https://dpologdvinity.github.io/undo/apt`, with its public key scoped through apt's `signed-by` option. Package archives must match release SHA-256 checksums before packaging. Repository metadata is signed with a dedicated CI signing key; private key material is never committed. Publishing is reusable from cargo-dist and can bootstrap the existing stable release without creating or moving release tags. Distribution tests use temporary HOME, UNDO_HOME, GNUPGHOME, and apt state; no system installation is performed during tests.
+
 `undo` is Ctrl-Z for the terminal. It snapshots project directories into a
 private shadow git repository at safe moments (after each shell command, and
 before each AI-agent tool call). One command, `undo`, restores the last
