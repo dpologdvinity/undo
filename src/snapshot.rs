@@ -310,7 +310,7 @@ pub fn cli_snap(trigger: String, mut cmd: Option<String>, cwd: Option<PathBuf>) 
         return;
     }
     let deadline = Instant::now() + Duration::from_secs(10);
-    git::set_deadline(deadline);
+    let _deadline_guard = git::set_deadline(deadline);
     let mut cwd = cwd
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_default();

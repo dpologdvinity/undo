@@ -219,8 +219,18 @@ impl Git {
         Ok(self.output(args, &[])?.status.success())
     }
 }
-pub fn set_deadline(d: Instant) {
+pub struct DeadlineGuard;
+impl Drop for DeadlineGuard {
+    fn drop(&mut self) {
+        clear_deadline();
+    }
+}
+pub fn set_deadline(d: Instant) -> DeadlineGuard {
     *DEADLINE.lock().unwrap() = Some(d);
+    DeadlineGuard
+}
+pub fn clear_deadline() {
+    *DEADLINE.lock().unwrap() = None;
 }
 pub fn check_version() -> Result<()> {
     let result = VERSION.get_or_init(|| {

@@ -49,13 +49,13 @@
 | **CLI Dispatch** | `src/main.rs` | Parses command-line arguments using `clap` derive. Maps default command (no arguments) to `undo` (restore `@1`). Formats errors as `undo: <msg>` and sets appropriate exit codes. |
 | **Root Detection** | `src/root.rs` | Evaluates innermost enclosing root. Resolves Git roots using `git rev-parse --show-toplevel` and `--git-common-dir` to support worktrees. Reads protected roots from `~/.local/share/undo/roots`. Refuses `$HOME` without `--force`. |
 | **Paths & Hashing** | `src/paths.rs` | Computes shadow repository directory as `~/.local/share/undo/repos/<sha256(canonical_root_path)>`. Ensures directory permissions are set strictly to `0700`. |
-| **Concurrency Lock** | `src/lock.rs` | File lock mechanism on `<repo>/lock`. Uses polling with bounded timeouts (10 seconds for snapshots, 60 seconds for restore/pruning) to prevent concurrent shadow corruption. |
+| **Concurrency Lock** | `src/lock.rs` | File lock mechanism on `<repo>/lock`. Uses polling with bounded timeouts (2 seconds for snapshots, 10 seconds for restore/pruning) to prevent concurrent shadow corruption. |
 | **Git Runner** | `src/git.rs` | Invokes `git` subprocesses under strict isolation: overrides `GIT_DIR`, `GIT_WORK_TREE`, and `GIT_INDEX_FILE`. Disables system and global configs (`GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`). Suppresses git attribute normalization by setting `core.attributesFile=/dev/null`. Enforces minimum Git version >= 2.25.0. |
 | **Snapshot Engine** | `src/snapshot.rs` | Creates atomic commits in shadow repo. Stages tracked and untracked files. Preserves ignored files `<= 1 MiB` (e.g., `.env`) while excluding heavy dependencies (`node_modules`, `target`, build artifacts). Prunes nested git repository boundaries from the index to avoid corrupting submodules or nested clones. |
 | **ID Resolution** | `src/ids.rs` | Maps human identifiers (`@0`, `@1`, `@N`), 40-character commit SHAs, and unique SHA prefixes to shadow commits. |
 | **Restore Engine** | `src/restore.rs` | Restores working tree state to match snapshot. Captures pre-restore snapshot `@0`. Calculates additions, modifications, and deletions. Applies file write with conservative permissions (`0600` for files, `0700` for directories/executables). Leaves untouched files and nested repos unmodified. |
 | **View Engine** | `src/view.rs` | Implements `undo list`, `undo diff`, and `undo status`. Formats relative timestamps (e.g., `42s ago`, `3m ago`) and parses snapshot commit headers. |
-| **Pruning Engine** | `src/prune.rs` | Background lifecycle manager. Retains snapshots according to decay policy: keep all snapshots for 24h, 1/hour for 7 days, 1/day for 30 days, while observing storage capacity limits. |
+| **Pruning Engine** | `src/prune.rs` | Background lifecycle manager. Retains snapshots according to decay policy: keep all snapshots for 7 days, 1/hour for days 7–30, while observing storage capacity limits. |
 | **Hook Manager** | `src/init.rs` | Installs shell integration scripts (`undo.bash`, `undo.zsh`, `undo.fish`) and injects the `PreToolUse` hook into `~/.claude/settings.json` with backup preservation. |
 | **Logging** | `src/log.rs` | Non-panicking append logger for errors and warnings. Automatically truncates log files to 1 MiB while preserving recent history. |
 
@@ -78,7 +78,7 @@ sequenceDiagram
     alt Outside any protected/git root
         Snap-->>User/Hook: Silent Exit 0
     else Root resolved
-        Snap->>Lock: acquire(repo, deadline: 10s)
+        Snap->>Lock: acquire(repo, deadline: 2s)
         Snap->>Git: ls-files / add -A
         Snap->>Git: check-ignore (include <= 1 MiB ignored, exclude heavy)
         Snap->>Git: write-tree
@@ -86,7 +86,7 @@ sequenceDiagram
             Snap-->>User/Hook: No-op (Exit 0)
         else State changed
             Snap->>Git: commit-tree with metadata
-            Snap->>Git: update-ref refs/heads/main
+            Snap->>Git: update-ref refs/heads/snapshots
             Snap-->>User/Hook: Snapshot committed (Exit 0)
         end
     end
@@ -103,7 +103,7 @@ sequenceDiagram
     participant Target as Working Tree
 
     User->>Restore: run "undo" (defaults to restore @1)
-    Restore->>Lock: acquire(repo, deadline: 60s)
+    Restore->>Lock: acquire(repo, deadline: 10s)
     Restore->>Snap: Resolve ID to target commit SHA
     Restore->>Snap: capture_tree (create pre-restore snapshot @0)
     Restore->>Target: Compute diff between target commit and working tree

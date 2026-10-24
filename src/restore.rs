@@ -91,24 +91,31 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
         let mut prefix = OsString::from("--prefix=");
         prefix.push(stage.as_os_str());
         prefix.push("/");
+        let mut write_paths = Vec::new();
+        let mut input = Vec::new();
         for (status, p) in &changes {
             if *status == 'D' {
                 continue;
             }
             safe_parents(&root.path, p)?;
-            let mut input = p.as_os_str().as_encoded_bytes().to_vec();
+            input.extend_from_slice(p.as_os_str().as_encoded_bytes());
             input.push(0);
+            write_paths.push((*status, p));
+        }
+        if !input.is_empty() {
             g.run_os_stdin(
                 &[
                     "checkout-index".into(),
                     "-f".into(),
                     "-z".into(),
                     "--stdin".into(),
-                    prefix.clone(),
+                    prefix,
                 ],
                 &input,
             )
-            .with_context(|| format!("writing {}", p.display()))?;
+            .context("writing restored files")?;
+        }
+        for (status, p) in write_paths {
             let staged = stage.join(p);
             if fs::symlink_metadata(&staged)?.is_file() {
                 let executable = fs::metadata(&staged)?.permissions().mode() & 0o111;
@@ -120,7 +127,7 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
             }
             safe_parents(&root.path, p)?;
             fs::rename(&staged, &full).with_context(|| format!("replacing {}", p.display()))?;
-            done.push((*status, p.to_string_lossy().into_owned()));
+            done.push((status, p.to_string_lossy().into_owned()));
         }
         Ok(())
     })();

@@ -89,7 +89,10 @@ fn dispatch(cli: Cli) -> anyhow::Result<()> {
             )?;
             Ok(())
         }
-        Some(Commands::Unprotect { dir }) => root::unprotect(&dir),
+        Some(Commands::Unprotect { dir }) => {
+            undo_cli::git::check_version()?;
+            root::unprotect(&dir)
+        }
         Some(Commands::Status) => {
             undo_cli::git::check_version()?;
             undo_cli::view::status(&std::env::current_dir()?)

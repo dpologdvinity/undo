@@ -18,7 +18,7 @@ pub fn find_root(cwd: &Path) -> Option<Root> {
         .ok()
         .and_then(|o| path_output(&o))
         .and_then(|p| fs::canonicalize(p).ok());
-    let (path, is_git) = pick_innermost(git, &read_roots().ok()?, &cwd)?;
+    let (path, is_git) = pick_innermost(git, &read_roots().unwrap_or_default(), &cwd)?;
     let git_common_dir = if is_git {
         crate::git::Git::plain()
             .at(&cwd)
