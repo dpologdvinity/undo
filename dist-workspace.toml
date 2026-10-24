@@ -17,4 +17,5 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 hosting = "github"
 # Publish the formula to the project tap after GitHub Release artifacts exist
 tap = "dpologdvinity/homebrew-tap"
-publish-jobs = ["homebrew"]
+publish-jobs = ["homebrew", "./publish-apt"]
+github-custom-job-permissions = { "publish-apt" = { contents = "write", pages = "write", id-token = "write" } }

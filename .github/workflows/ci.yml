@@ -156,10 +156,20 @@ jobs:
           path: target/release/undo
           if-no-files-found: error
 
+  distribution:
+    name: Distribution Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y apt-utils gnupg
+      - name: Verify signed packages and isolated apt installation
+        run: python3 tests/distribution.py
+
   ci-status:
     name: CI Status Gate
     if: always()
-    needs: [check, lint, test, coverage, build]
+    needs: [check, lint, test, coverage, build, distribution]
     runs-on: ubuntu-latest
     steps:
       - name: Evaluate pipeline status
@@ -168,7 +178,8 @@ jobs:
              [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test.result }}" != "success" ] || \
              [ "${{ needs.coverage.result }}" != "success" ] || \
-             [ "${{ needs.build.result }}" != "success" ]; then
+             [ "${{ needs.build.result }}" != "success" ] || \
+             [ "${{ needs.distribution.result }}" != "success" ]; then
             echo "CI pipeline failed"
             exit 1
           fi

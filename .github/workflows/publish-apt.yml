@@ -1,0 +1,71 @@
+name: Publish apt repository
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+    secrets:
+      APT_SIGNING_KEY:
+        required: true
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: undo-apt-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: master
+          persist-credentials: false
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y apt-utils gnupg
+      - name: Download the latest stable release
+        id: release
+        shell: bash
+        run: |
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern 'undo-cli-*-unknown-linux-gnu.tar.xz*' --pattern 'undo-cli-installer.sh' --dir artifacts
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+      - name: Import apt signing key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          test -n "$APT_SIGNING_KEY"
+          export GNUPGHOME="$RUNNER_TEMP/undo-apt-gnupg"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          mkdir -m 700 "$GNUPGHOME"
+          printf '%s' "$APT_SIGNING_KEY" | gpg --batch --import
+      - name: Build signed apt repository
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python3 scripts/build-apt-repo.py "$VERSION" artifacts site/apt packaging/apt-key.asc
+          cp artifacts/undo-cli-installer.sh site/install.sh
+      - name: Attach Debian packages to the release
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" site/apt/pool/main/*/*.deb* --clobber
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment
