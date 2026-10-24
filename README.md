@@ -1,5 +1,8 @@
 # undo
 
+[![CI](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml/badge.svg)](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Ctrl-Z for your terminal and your AI agent.** `undo` saves a project's working tree after shell commands and before Claude Code tools. If `rm -rf src`, `git reset --hard`, or an agent command destroys uncommitted work, run `undo` to restore the last different snapshot.
 
 ![A terminal recovering src after deletion and git reset](demo.gif)
@@ -62,6 +65,11 @@ Snapshot IDs are `@N` (`@0` is newest) or unique commit prefixes of at least fou
 | `git reset --hard` | No | No for Bash | Commits via reflog; uncommitted edits lost | Working-tree edits, after a snapshot |
 | `git clean -fdx` | No | No for Bash | Ignored/untracked files lost | Included files, after a snapshot |
 | Agent Bash commands | No | No | Only committed files | Yes, with the Claude hook |
+
+## Documentation
+
+- [Architecture & Technical Design](ARCHITECTURE.md): Deep-dive into shadow git repositories, file permissions, concurrency locks, and data flows.
+- [Contributing Guide](CONTRIBUTING.md): Local development setup, sandbox test harness guidelines, and pull request conventions.
 
 ## Limits and privacy
 
