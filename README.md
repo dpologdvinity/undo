@@ -1,6 +1,11 @@
 # undo
 
-[![CI](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml/badge.svg)](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml)
+[![CI](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml)
+[![Release build](https://github.com/dpologdvinity/undo/actions/workflows/release.yml/badge.svg)](https://github.com/dpologdvinity/undo/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/dpologdvinity/undo)](https://github.com/dpologdvinity/undo/releases/latest)
+[![Rust 1.89+](https://img.shields.io/badge/Rust-1.89%2B-orange?logo=rust)](Cargo.toml)
+[![Platforms: Linux and macOS](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-blue)](#install)
+[![Homebrew tap](https://img.shields.io/badge/Homebrew-tap-FBB040?logo=homebrew)](https://github.com/dpologdvinity/homebrew-tap/blob/master/Formula/undo.rb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Ctrl-Z for your terminal and your AI agent.** `undo` saves a project's working tree after shell commands and before Claude Code tools. If `rm -rf src`, `git reset --hard`, or an agent command destroys uncommitted work, run `undo` to restore the last different snapshot.
@@ -13,11 +18,17 @@ Requires Linux or macOS and Git 2.25 or newer. WSL uses the Linux build. Install
 
 ```sh
 brew install dpologdvinity/tap/undo
-# or
-cargo install undo-cli
 ```
 
-Prebuilt binaries for x86_64 and aarch64 Linux and macOS are available on [GitHub Releases](https://github.com/dpologdvinity/undo/releases). From source: `cargo install --path .`.
+Prebuilt binaries for x86_64 and aarch64 Linux and macOS are available on [GitHub Releases](https://github.com/dpologdvinity/undo/releases).
+
+For the latest source, install from `master` with Rust 1.89 or newer:
+
+```sh
+cargo install --git https://github.com/dpologdvinity/undo --branch master --locked undo-cli
+```
+
+From a local checkout, use `cargo install --path . --locked`. The crate is not yet published to crates.io.
 
 ## Set up
 
