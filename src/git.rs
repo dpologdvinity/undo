@@ -2,7 +2,7 @@ use crate::root::Root;
 use anyhow::{Context, Result, bail};
 use std::{
     ffi::OsString,
-    io::{Read, Write},
+    io::{ErrorKind, Read, Write},
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
     sync::{Mutex, OnceLock},
@@ -112,6 +112,35 @@ impl Git {
         }
         c
     }
+    fn clear_index_lock(&self) -> Result<()> {
+        if !self.shadow {
+            return Ok(());
+        }
+        let Some((_, index)) = self.env.iter().find(|(key, _)| key == "GIT_INDEX_FILE") else {
+            return Ok(());
+        };
+        let mut lock = PathBuf::from(index);
+        if !lock.is_absolute() {
+            let cwd = self
+                .cwd
+                .clone()
+                .map(Ok)
+                .unwrap_or_else(std::env::current_dir)?;
+            lock = cwd.join(lock);
+        }
+        lock.as_mut_os_string().push(".lock");
+        match std::fs::remove_file(lock) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e).context("removing stale shadow index lock"),
+        }
+    }
+    fn timeout_error(&self) -> anyhow::Error {
+        match self.clear_index_lock() {
+            Ok(()) => anyhow::anyhow!("timed out"),
+            Err(e) => anyhow::anyhow!("timed out; {e:#}"),
+        }
+    }
     pub fn output(&self, args: &[&str], input: &[u8]) -> Result<Output> {
         self.output_os(&args.iter().map(OsString::from).collect::<Vec<_>>(), input)
     }
@@ -148,7 +177,7 @@ impl Git {
             if deadline.is_some_and(|d| Instant::now() >= d) {
                 let _ = child.kill();
                 let _ = child.wait();
-                bail!("timed out");
+                return Err(self.timeout_error());
             }
             std::thread::sleep(Duration::from_millis(10));
         };
@@ -265,5 +294,26 @@ mod tests {
         assert!(super::version_ok("git version 2.39.3 (Apple Git-146)"));
         assert!(!super::version_ok("git version 2.24.1"));
         assert!(!super::version_ok("garbage"));
+    }
+
+    #[test]
+    fn clears_timed_out_shadow_index_lock() {
+        use std::{ffi::OsString, fs, path::PathBuf};
+
+        let dir = tempfile::tempdir().unwrap();
+        let index = dir.path().join("undo-index");
+        let lock = PathBuf::from(format!("{}.lock", index.display()));
+        fs::write(&lock, "stale").unwrap();
+        let git = super::Git {
+            cwd: Some(dir.path().into()),
+            env: vec![(OsString::from("GIT_INDEX_FILE"), index.into_os_string())],
+            config: vec![],
+            shadow: true,
+        };
+
+        let error = git.timeout_error();
+
+        assert!(error.to_string().contains("timed out"));
+        assert!(!lock.exists());
     }
 }

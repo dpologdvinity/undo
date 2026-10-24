@@ -82,6 +82,8 @@ Snapshots stay local by default. They contain ignored files up to 1 MiB, includi
 
 A background shell snapshot can race with the next command if you start it immediately. The Claude hook completes before its tool call.
 
+On WSL2 `/mnt/c` (DRVFS), a disposable repository with 10,001 small tracked files took 236.5 s to create, 826.7 s for the initial `git add`, and 240.0 s to commit. Its first `undo snap` exceeded the 10 s deadline. At this scale, the first snapshot can time out; use the WSL Linux filesystem for large repositories when timely snapshots matter.
+
 ## Uninstall
 
 Remove the shell setup line and the `undo snap --trigger claude` entry from `~/.claude/settings.json` (the installer prints the backup path). Uninstall the binary with your package manager. Once you no longer need recovery, delete `~/.local/share/undo` yourself; deleting it discards every snapshot.
