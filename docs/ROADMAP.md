@@ -9,6 +9,7 @@ Spec: `docs/SPEC.md`. Plan: `docs/PLAN.md`.
 - zsh/bash/fish prompt hooks, and the Claude Code `PreToolUse` hook.
 - `undo`, `list`, `diff`, `restore`, `status`, `protect`, `prune`.
 - Retention of 7 d full, 30 d hourly, and a 2 GiB cap.
+- Distribution: Homebrew, a curl installer, and a signed apt repository for amd64/arm64 Debian and Ubuntu.
 
 Exit: all SPEC §13 tests pass on Linux and macOS, and the manual checks are done.
 
