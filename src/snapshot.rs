@@ -154,28 +154,17 @@ pub fn capture_tree(root: &Root, repo: &Path) -> Result<String> {
         )?;
     }
     g.run(&["add", "-A"])?;
-    let mut real_tracked = HashSet::new();
     if root.is_git {
-        let tracked = Git::plain()
-            .at(&root.path)
-            .bytes(&["ls-files", "-s", "-z"])?;
+        let real = Git::plain().at(&root.path);
+        let ignored_tracked = real.bytes(&["ls-files", "-c", "-i", "--exclude-standard", "-z"])?;
         let mut force = Vec::new();
-        for entry in nul_paths(&tracked) {
-            if entry.starts_with(b"160000 ") {
-                continue;
-            }
-            if let Some(i) = entry.iter().position(|b| *b == b'\t') {
-                let p = &entry[i + 1..];
-                real_tracked.insert(p.to_vec());
-                if nested_boundary(&root.path, path(p)).is_some() {
-                    continue;
-                }
-                if fs::symlink_metadata(root.path.join(path(p)))
+        for p in nul_paths(&ignored_tracked) {
+            if nested_boundary(&root.path, path(p)).is_none()
+                && fs::symlink_metadata(root.path.join(path(p)))
                     .is_ok_and(|m| m.is_file() || m.file_type().is_symlink())
-                {
-                    force.extend_from_slice(p);
-                    force.push(0);
-                }
+            {
+                force.extend_from_slice(p);
+                force.push(0);
             }
         }
         add_paths(&g, &force)?;
@@ -221,6 +210,13 @@ pub fn capture_tree(root: &Root, repo: &Path) -> Result<String> {
         .collect();
     fs::write(repo.join("undo-nested"), nested_lines)?;
     let ignored_tracked = g.bytes(&["ls-files", "-c", "-i", "--exclude-standard", "-z"])?;
+    let real_tracked: HashSet<Vec<u8>> = if root.is_git && !ignored_tracked.is_empty() {
+        nul_paths(&Git::plain().at(&root.path).bytes(&["ls-files", "-z"])?)
+            .map(Vec::from)
+            .collect()
+    } else {
+        HashSet::new()
+    };
     let mut drop_paths = Vec::new();
     for p in nul_paths(&ignored_tracked) {
         if real_tracked.contains(p) {
