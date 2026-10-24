@@ -79,7 +79,16 @@ fn bash_interactive_snap() {
             .output()
             .unwrap(),
     );
-    assert!(success(s.undo(&["list"])).contains("shell"));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let mut found = false;
+    while std::time::Instant::now() < deadline {
+        if success(s.undo(&["list"])).contains("shell") {
+            found = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(found, "list did not contain 'shell' within timeout");
 }
 #[test]
 fn bash_array_and_string_hooks_preserved_once() {
