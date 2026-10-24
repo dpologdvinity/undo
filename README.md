@@ -6,6 +6,8 @@
 [![Rust 1.89+](https://img.shields.io/badge/Rust-1.89%2B-orange?logo=rust)](Cargo.toml)
 [![Platforms: Linux and macOS](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-blue)](#install)
 [![Homebrew tap](https://img.shields.io/badge/Homebrew-tap-FBB040?logo=homebrew)](https://github.com/dpologdvinity/homebrew-tap/blob/master/Formula/undo.rb)
+[![apt repository](https://img.shields.io/badge/apt-repository-A81D33?logo=debian)](#apt-debian-and-ubuntu)
+[![curl installer](https://img.shields.io/badge/curl-installer-073551?logo=curl)](#curl-linux-and-macos)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Ctrl-Z for your terminal and your AI agent.** `undo` saves a project's working tree after shell commands and before Claude Code tools. If `rm -rf src`, `git reset --hard`, or an agent command destroys uncommitted work, run `undo` to restore the last different snapshot.
@@ -14,13 +16,40 @@
 
 ## Install
 
-Requires Linux or macOS and Git 2.25 or newer. WSL uses the Linux build. Install with:
+Requires Linux or macOS and Git 2.25 or newer. WSL uses the Linux build.
+
+### Homebrew
 
 ```sh
 brew install dpologdvinity/tap/undo
 ```
 
 Prebuilt binaries for x86_64 and aarch64 Linux and macOS are available on [GitHub Releases](https://github.com/dpologdvinity/undo/releases).
+
+### curl (Linux and macOS)
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/dpologdvinity/undo/releases/latest/download/undo-cli-installer.sh | sh
+```
+
+Installs to `~/.local/bin`. Follow the installer's output to update your shell's PATH if needed.
+
+### apt (Debian and Ubuntu)
+
+Supports Debian 12+, Ubuntu 22.04+, and compatible distributions with glibc 2.35+, on amd64 and arm64. Add the signed repository once:
+
+```sh
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://dpologdvinity.github.io/undo/apt/undo.asc | sudo tee /etc/apt/keyrings/undo.asc >/dev/null
+sudo chmod 0644 /etc/apt/keyrings/undo.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/undo.asc] https://dpologdvinity.github.io/undo/apt stable main" | sudo tee /etc/apt/sources.list.d/undo.list
+sudo apt update
+sudo apt install undo
+```
+
+Signing-key fingerprint: `2302 833D 6799 6ED9 F4A7 E00F DAC0 6859 0999 DC8C`. The [public key](packaging/apt-key.asc) is scoped to this repository by `signed-by`. Future stable releases are available through normal apt upgrades.
+
+### From source
 
 For the latest source, install from `master` with Rust 1.89 or newer:
 
