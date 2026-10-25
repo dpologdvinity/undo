@@ -95,7 +95,11 @@ pub fn nested_boundary(root: &Path, path: &Path) -> Option<PathBuf> {
     let mut current = PathBuf::new();
     for component in path.components() {
         current.push(component.as_os_str());
-        if root.join(&current).join(".git").exists() {
+        let full = root.join(&current);
+        if !fs::symlink_metadata(&full).is_ok_and(|m| m.is_dir()) {
+            return None;
+        }
+        if full.join(".git").exists() {
             return Some(current);
         }
     }
