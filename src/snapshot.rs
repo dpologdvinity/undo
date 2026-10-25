@@ -321,6 +321,7 @@ pub fn cli_snap(trigger: String, mut cmd: Option<String>, cwd: Option<PathBuf>) 
     let mut cwd = cwd
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_default();
+    let mut error_root = None;
     let result = (|| -> Result<()> {
         git::check_version()?;
         if trigger == "claude" {
@@ -347,6 +348,7 @@ pub fn cli_snap(trigger: String, mut cmd: Option<String>, cwd: Option<PathBuf>) 
             }
         }
         if let Some(root) = crate::root::find_root(&cwd) {
+            error_root = Some(root.path.clone());
             snap(
                 &root,
                 &Meta {
@@ -364,7 +366,7 @@ pub fn cli_snap(trigger: String, mut cmd: Option<String>, cwd: Option<PathBuf>) 
     if let Err(e) = result {
         let msg = format!("{e:#}");
         log::error(
-            Some(&cwd),
+            Some(error_root.as_deref().unwrap_or(&cwd)),
             if msg.contains("timed out") {
                 "snapshot timed out"
             } else {

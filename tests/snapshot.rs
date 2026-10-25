@@ -134,3 +134,21 @@ fn existing_shadow_files_becoming_nested_repo_are_removed() {
             .contains("vendor")
     );
 }
+#[test]
+fn snapshot_failure_from_subdirectory_is_visible_in_root_status() {
+    let s = Sandbox::git_root();
+    let path =
+        s.git_shim("case \" $* \" in *\" add \"*) printf 'capture-failed\\n' >&2; exit 1;; esac");
+    let output = s
+        .command(env!("CARGO_BIN_EXE_undo"))
+        .arg("snap")
+        .current_dir(s.root.join("src"))
+        .env("PATH", path)
+        .output()
+        .unwrap();
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+    success(output);
+    let status = success(s.undo(&["status"]));
+    assert!(status.contains("capture-failed"), "{status}");
+}
