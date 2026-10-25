@@ -23,7 +23,7 @@ fn append(path: &Path, line: &str) -> std::io::Result<()> {
         .truncate(false)
         .mode(0o600)
         .open(path)?;
-    file.lock()?;
+    file.try_lock()?;
     file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
     file.seek(SeekFrom::End(0))?;
     file.write_all(line.as_bytes())?;
