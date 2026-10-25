@@ -126,6 +126,10 @@ fn perform(cwd: &Path, id: Option<&str>, selected: &[PathBuf]) -> Result<()> {
                 fs::create_dir_all(parent)?;
             }
             safe_parents(&root.path, p)?;
+            if fs::symlink_metadata(&full).is_ok_and(|m| m.is_dir()) {
+                fs::remove_dir(&full)
+                    .with_context(|| format!("removing empty directory {}", p.display()))?;
+            }
             fs::rename(&staged, &full).with_context(|| format!("replacing {}", p.display()))?;
             done.push((status, p.to_string_lossy().into_owned()));
         }
