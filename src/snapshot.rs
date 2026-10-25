@@ -85,8 +85,11 @@ pub fn ensure_repo(root: &Root, repo: &Path) -> Result<()> {
     Ok(())
 }
 fn heavy(path: &Path) -> bool {
-    path.components()
-        .any(|c| matches!(c, Component::Normal(name) if HEAVY.iter().any(|heavy| name == *heavy)))
+    path.parent().is_some_and(|parent| {
+        parent.components().any(
+            |c| matches!(c, Component::Normal(name) if HEAVY.iter().any(|heavy| name == *heavy)),
+        )
+    })
 }
 pub fn nested_boundary(root: &Path, path: &Path) -> Option<PathBuf> {
     let mut current = PathBuf::new();

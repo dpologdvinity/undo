@@ -124,6 +124,21 @@ fn tracked_build_restored() {
     );
 }
 #[test]
+fn protected_root_restores_files_named_like_heavy_directories() {
+    let s = Sandbox::new();
+    s.write("build", "build script");
+    s.write("src/target", "target file");
+    symlink("build", s.root.join("dist")).unwrap();
+    s.write("node_modules/pkg", "excluded package");
+    success(s.undo(&["protect", "."]));
+    let before = s.tree_hash();
+    fs::remove_file(s.root.join("build")).unwrap();
+    s.write("src/target", "changed");
+    fs::remove_file(s.root.join("dist")).unwrap();
+    success(s.undo(&[]));
+    assert_eq!(before, s.tree_hash());
+}
+#[test]
 fn modes_symlinks_and_unusual_paths() {
     let s = Sandbox::git_root();
     s.write("space\nfile", "yes");
