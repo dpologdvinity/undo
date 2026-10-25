@@ -1,13 +1,14 @@
 Output demo.gif
 Require undo
 Require git
+Require mktemp
 Set Shell "bash"
 Set FontSize 20
 Set Width 920
 Set Height 430
 Set TypingSpeed 18ms
 Hide
-Type "mkdir -p $UNDO_DEMO_ROOT/src; cd $UNDO_DEMO_ROOT; git init -q; printf 'project\\n' > README.md; git add README.md; git commit -qm initial"
+Type `set -eu; for name in "${!GIT_@}"; do unset "$name"; done; UNDO_DEMO_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/undo-demo.XXXXXX"); trap 'rm -rf -- "$UNDO_DEMO_ROOT"' EXIT; export HOME="$UNDO_DEMO_ROOT/home" UNDO_HOME="$UNDO_DEMO_ROOT/data" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1; mkdir -p "$HOME" "$UNDO_DEMO_ROOT/project/src"; cd "$UNDO_DEMO_ROOT/project"; git init -q; printf 'project\n' > README.md; git add README.md; git -c user.name=demo -c user.email=demo@localhost commit -qm initial`
 Enter
 Type "printf 'uncommitted work\\n' > src/main.rs; undo snap"
 Enter
