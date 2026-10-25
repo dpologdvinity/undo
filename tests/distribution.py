@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import pwd
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import textwrap
 import unittest
 
 
@@ -124,6 +126,46 @@ class DistributionTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(b"version", result.stderr)
         self.assertFalse(repo.exists())
+
+    def release_commands(self, exists):
+        workflow = (BUILDER.parents[1] / ".github/workflows/release.yml").read_text()
+        step = workflow.split("      - name: Create GitHub Release\n", 1)[1]
+        step = step.split("\n  publish-homebrew-formula:", 1)[0]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        script = script.replace("${{ needs.plan.outputs.tag }}", "v0.1.1")
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        gh = bin_dir / "gh"
+        gh.write_text(f"#!{sys.executable}\n" + '''import json, os, sys
+with open(os.environ["UNDO_TEST_COMMANDS"], "a") as file:
+    file.write(json.dumps(sys.argv[1:]) + "\\n")
+if sys.argv[1:3] == ["release", "view"]:
+    sys.exit(0 if os.environ["UNDO_TEST_EXISTS"] == "1" else 1)
+if sys.argv[1:3] == ["release", "create"] and os.environ["UNDO_TEST_EXISTS"] == "1":
+    sys.exit("release already exists")
+''')
+        gh.chmod(0o700)
+        log = self.root / "commands.jsonl"
+        self.env.update(
+            PATH=str(bin_dir) + os.pathsep + self.env["PATH"],
+            UNDO_TEST_COMMANDS=str(log), UNDO_TEST_EXISTS="1" if exists else "0",
+            RUNNER_TEMP=str(self.root), ANNOUNCEMENT_BODY="Release notes", ANNOUNCEMENT_TITLE="v0.1.1",
+            RELEASE_COMMIT="test-commit", PRERELEASE_FLAG="",
+        )
+        self.command("bash", "-e", "-u", "-o", "pipefail", "-c", script)
+        return [json.loads(line) for line in log.read_text().splitlines()]
+
+    def test_reuses_existing_release_when_uploading_installers(self):
+        commands = self.release_commands(exists=True)
+        self.assertEqual([args[:2] for args in commands], [
+            ["release", "view"], ["release", "upload"], ["release", "edit"],
+        ])
+        self.assertIn("--clobber", commands[1])
+        self.assertIn("--draft=false", commands[2])
+
+    def test_creates_release_when_none_exists(self):
+        commands = self.release_commands(exists=False)
+        self.assertEqual([args[:2] for args in commands], [["release", "view"], ["release", "create"]])
 
 
 if __name__ == "__main__":
