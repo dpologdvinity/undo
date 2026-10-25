@@ -52,3 +52,44 @@ fn stdin_cwd_overrides_process_cwd() {
     success(child.wait_with_output().unwrap());
     assert!(success(s.undo(&["list"])).contains("NotebookEdit book.ipynb"));
 }
+#[test]
+fn log_contention_does_not_block_snapshot() {
+    use std::{
+        io::Write,
+        process::Stdio,
+        time::{Duration, Instant},
+    };
+    let s = Sandbox::git_root();
+    let log = fs::File::create(s.data().join("log")).unwrap();
+    log.lock().unwrap();
+    let mut child = s
+        .command(env!("CARGO_BIN_EXE_undo"))
+        .args(["snap", "--trigger", "claude"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"not json").unwrap();
+    let deadline = Instant::now() + Duration::from_secs(11);
+    let exited = loop {
+        if child.try_wait().unwrap().is_some() {
+            break true;
+        }
+        if Instant::now() >= deadline {
+            child.kill().unwrap();
+            break false;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let output = child.wait_with_output().unwrap();
+    drop(log);
+    assert!(
+        exited,
+        "snapshot exceeded its deadline waiting for the log lock"
+    );
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+    success(output);
+    assert!(success(s.undo(&["list"])).contains("claude"));
+}
