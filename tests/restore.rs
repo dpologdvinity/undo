@@ -203,6 +203,33 @@ fn file_directory_transitions() {
     assert_eq!(after, s.tree_hash());
 }
 #[test]
+fn file_replaces_empty_directory() {
+    recover("rm file && mkdir file");
+}
+#[test]
+fn symlink_replaces_empty_directory() {
+    let s = Sandbox::git_root();
+    symlink("README.md", s.root.join("link")).unwrap();
+    let before = s.tree_hash();
+    success(s.undo(&["snap"]));
+    fs::remove_file(s.root.join("link")).unwrap();
+    fs::create_dir(s.root.join("link")).unwrap();
+    success(s.undo(&[]));
+    assert_eq!(before, s.tree_hash());
+}
+#[test]
+fn nonempty_excluded_directory_obstruction_is_preserved() {
+    let s = Sandbox::git_root();
+    s.write(".gitignore", "node_modules/\n");
+    s.write("node_modules", "saved file");
+    success(s.undo(&["snap"]));
+    fs::remove_file(s.root.join("node_modules")).unwrap();
+    s.write("node_modules/keep", "excluded work");
+    let before = s.tree_hash();
+    assert_eq!(s.undo(&[]).status.code(), Some(1));
+    assert_eq!(before, s.tree_hash());
+}
+#[test]
 fn nested_repo_is_never_modified_by_restore() {
     let s = Sandbox::git_root();
     s.write("vendor/f", "old");
