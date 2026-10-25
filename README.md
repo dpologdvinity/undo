@@ -3,6 +3,7 @@
 [![CI](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/dpologdvinity/undo/actions/workflows/ci.yml)
 [![Release build](https://github.com/dpologdvinity/undo/actions/workflows/release.yml/badge.svg)](https://github.com/dpologdvinity/undo/actions/workflows/release.yml)
 [![Latest release](https://img.shields.io/github/v/release/dpologdvinity/undo)](https://github.com/dpologdvinity/undo/releases/latest)
+[![crates.io](https://img.shields.io/crates/v/undo-cli)](https://crates.io/crates/undo-cli)
 [![Rust 1.89+](https://img.shields.io/badge/Rust-1.89%2B-orange?logo=rust)](Cargo.toml)
 [![Platforms: Linux and macOS](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-blue)](#install)
 [![Homebrew tap](https://img.shields.io/badge/Homebrew-tap-FBB040?logo=homebrew)](https://github.com/dpologdvinity/homebrew-tap/blob/master/Formula/undo.rb)
@@ -51,13 +52,19 @@ Signing-key fingerprint: `2302 833D 6799 6ED9 F4A7 E00F DAC0 6859 0999 DC8C`. Th
 
 ### From source
 
+Install the published release with Rust 1.89 or newer:
+
+```sh
+cargo install undo-cli --locked
+```
+
 For the latest source, install from `master` with Rust 1.89 or newer:
 
 ```sh
 cargo install --git https://github.com/dpologdvinity/undo --branch master --locked undo-cli
 ```
 
-From a local checkout, use `cargo install --path . --locked`. The crate is not yet published to crates.io.
+From a local checkout, use `cargo install --path . --locked`.
 
 ## Set up
 
