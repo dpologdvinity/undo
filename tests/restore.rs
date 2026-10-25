@@ -158,6 +158,29 @@ fn modes_symlinks_and_unusual_paths() {
     assert_eq!(before, s.tree_hash());
 }
 #[test]
+fn symlink_to_external_git_directory_is_recoverable() {
+    let s = Sandbox::git_root();
+    let external = s.dir.path().join("external");
+    fs::create_dir(&external).unwrap();
+    fs::write(external.join("keep"), "external work").unwrap();
+    success(
+        s.command("git")
+            .args(["init", "-q"])
+            .arg(&external)
+            .output()
+            .unwrap(),
+    );
+    let outside = hash_tree(&external, false);
+    symlink(&external, s.root.join("link")).unwrap();
+    let before = s.tree_hash();
+    success(s.undo(&["snap"]));
+    fs::remove_file(s.root.join("link")).unwrap();
+    success(s.undo(&[]));
+    assert_eq!(before, s.tree_hash());
+    assert_eq!(outside, hash_tree(&external, false));
+    assert!(!success(s.undo(&["status"])).contains("link (nested git repo)"));
+}
+#[test]
 fn rejects_outside_paths() {
     let s = Sandbox::git_root();
     success(s.undo(&["snap"]));
