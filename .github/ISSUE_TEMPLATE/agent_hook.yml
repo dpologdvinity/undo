@@ -1,0 +1,29 @@
+# Request form for `undo init <agent>` support for another coding agent.
+name: New agent hook request
+description: Ask for an `undo init <agent>` installer for another coding agent.
+labels: [enhancement]
+body:
+  - type: input
+    id: agent
+    attributes:
+      label: Agent
+      placeholder: Codex CLI, Cursor, Gemini CLI, ...
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: Hook documentation
+      description: Link to the agent's docs for hooks that run before tool calls.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config file and hook format
+      description: Where the agent reads hook config from, and an example entry if you have one.
+      render: text
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else

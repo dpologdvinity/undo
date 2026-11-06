@@ -1,0 +1,44 @@
+# Bug report form; asks for `undo status` because it shows hooks, storage, and recent errors.
+name: Bug report
+description: Something did not snapshot, restore, or behave as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. cd into a git repo
+        2. rm -rf src
+        3. undo
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `undo status`
+      description: Run it from the affected project. Remove anything private.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `undo --version`.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS, shell, and Git version
+      placeholder: macOS 15, zsh 5.9, git 2.47
+    validations:
+      required: true
