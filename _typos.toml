@@ -1,0 +1,11 @@
+# typos config: https://github.com/crate-ci/typos
+[files]
+extend-exclude = [
+  "*.{gif,png,jpg,jpeg,webp,ico,svg,pdf,woff,woff2,ttf}",
+]
+
+[default.extend-words]
+# "Nd" is a placeholder for a number of days ("3d ago"), and a Unicode category.
+"nd" = "nd"
+# "fpr:" is the GnuPG colon-record type for a fingerprint.
+"fpr" = "fpr"
