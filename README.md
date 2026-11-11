@@ -116,6 +116,7 @@ Snapshot IDs are `@N` (`@0` is newest) or unique commit prefixes of at least fou
 ## Documentation
 
 - [Architecture & Technical Design](ARCHITECTURE.md): Deep-dive into shadow git repositories, file permissions, concurrency locks, and data flows.
+- [Design](docs/DESIGN.md), [Spec](docs/SPEC.md), [Plan](docs/PLAN.md) and [Roadmap](docs/ROADMAP.md): how `undo` was designed and built, release by release.
 - [Contributing Guide](CONTRIBUTING.md): Local development setup, sandbox test harness guidelines, and pull request conventions.
 
 ## Limits and privacy

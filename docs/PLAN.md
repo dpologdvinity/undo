@@ -1,8 +1,7 @@
 # undo — Implementation Plan (v0.1)
 
 Read `docs/SPEC.md` first. Section references (§) point there. Do the tasks in order,
-one commit each, using Conventional Commits. Don't commit `CLAUDE.md`, `AGENTS.md`,
-`.claude/`, `.superpowers/`, `.codex/`, or `.mcp.json`.
+one commit each, using Conventional Commits.
 
 Before each commit:
 ```sh

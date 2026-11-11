@@ -8,7 +8,7 @@ before each AI-agent tool call). One command, `undo`, restores the last
 good state. It never parses or intercepts commands.
 
 This spec turns the approved design
-(`docs/superpowers/specs/2026-10-23-undo-design.md`) into exact,
+(`docs/DESIGN.md`) into exact,
 implementable behavior. If they disagree, this spec wins for v0.1. Build order
 is in `docs/PLAN.md`, and later work is in `docs/ROADMAP.md`.
 
