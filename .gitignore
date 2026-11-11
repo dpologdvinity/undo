@@ -1,3 +1,17 @@
 /target
+
+# Secrets and credentials
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Personal, machine-local overrides (e.g. .claude/settings.local.json, CLAUDE.local.md)
+*.local.*
+
+# Agent scratch space
 /.superpowers/
+/.worktrees/
+/.playwright-mcp/
+HANDOFF.md
