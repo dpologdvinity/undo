@@ -82,7 +82,7 @@ All commit messages must follow the [Conventional Commits](https://www.conventio
 | `ci:` | CI/CD workflow configuration | `ci: add test matrix and coverage reporting` |
 
 ### Hygiene & Excluded Files
-Never commit AI agent scratchpads, prompt files, or harness configs (`CLAUDE.md`, `AGENTS.md`, `.claude/`, `.superpowers/`, `.codex/`, `docs/agents/`). Add them to `.git/info/exclude`.
+Shared agent config is committed: `AGENTS.md` (canonical instructions, imported by `CLAUDE.md`), `.claude/settings.json`, `.codex/config.toml`, and skills in `.agents/skills/`. Personal overrides (`*.local.*`, such as `.claude/settings.local.json` and `CLAUDE.local.md`), `.env*` files and agent scratch space are gitignored and must never be committed.
 
 ### Submitting Pull Requests
 1. Create a descriptive feature branch (e.g., `feat/my-new-feature` or `fix/issue-description`).
