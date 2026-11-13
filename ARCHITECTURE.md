@@ -7,7 +7,7 @@
 ## 1. Core Principles & Mental Model
 
 1. **Isolation from Project Git State:**
-   `undo` maintains an independent shadow Git repository under `~/.local/share/undo/repos/<hash>/`. It **never** writes to or alters the target repository's `.git/` directory, branch refs, index, or reflog.
+   `undo` maintains an independent shadow Git repository under `~/.local/share/undo/repos/<hash>.git/`. It **never** writes to or alters the target repository's `.git/` directory, branch refs, index, or reflog.
 2. **Deterministic Root Detection:**
    A project root is either the innermost enclosing Git repository or an explicitly protected directory configured via `undo protect`.
 3. **Double-Safety on Restore:**
@@ -46,18 +46,18 @@
 
 | Module | File | Role & Invariants |
 |---|---|---|
-| **CLI Dispatch** | `src/main.rs` | Parses command-line arguments using `clap` derive. Maps default command (no arguments) to `undo` (restore `@1`). Formats errors as `undo: <msg>` and sets appropriate exit codes. |
-| **Root Detection** | `src/root.rs` | Evaluates innermost enclosing root. Resolves Git roots using `git rev-parse --show-toplevel` and `--git-common-dir` to support worktrees. Reads protected roots from `~/.local/share/undo/roots`. Refuses `$HOME` without `--force`. |
-| **Paths & Hashing** | `src/paths.rs` | Computes shadow repository directory as `~/.local/share/undo/repos/<sha256(canonical_root_path)>`. Ensures directory permissions are set strictly to `0700`. |
-| **Concurrency Lock** | `src/lock.rs` | File lock mechanism on `<repo>/lock`. Uses polling with bounded timeouts (2 seconds for snapshots, 10 seconds for restore/pruning) to prevent concurrent shadow corruption. |
-| **Git Runner** | `src/git.rs` | Invokes `git` subprocesses under strict isolation: overrides `GIT_DIR`, `GIT_WORK_TREE`, and `GIT_INDEX_FILE`. Disables system and global configs (`GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`). Suppresses git attribute normalization by setting `core.attributesFile=/dev/null`. Enforces minimum Git version >= 2.25.0. |
+| **CLI Dispatch** | `src/main.rs` | Parses command-line arguments using `clap` derive. With no subcommand, restores the newest snapshot whose tree differs from the current working tree. Formats errors as `undo: <msg>` and exits 1. |
+| **Root Detection** | `src/root.rs` | Evaluates innermost enclosing root. Resolves Git roots using `git rev-parse --show-toplevel` and `--git-common-dir` to support worktrees. Reads protected roots from `~/.local/share/undo/roots`. `undo protect` refuses `/` and `$HOME` without `--force`. |
+| **Paths & Hashing** | `src/paths.rs` | Computes shadow repository directory as `~/.local/share/undo/repos/<sha256(canonical_root_path)>.git`. The data directory honors `UNDO_HOME`, then `$XDG_DATA_HOME/undo`. Sets the data, `repos`, and shadow repository directories to `0700`. |
+| **Concurrency Lock** | `src/lock.rs` | Advisory file lock on `<repo>/undo.lock`, polled every 50 ms until a deadline (2 seconds for snapshots, 10 seconds for restore, diff, and pruning) to prevent concurrent shadow corruption. |
+| **Git Runner** | `src/git.rs` | Invokes `git` subprocesses under strict isolation: overrides `GIT_DIR`, `GIT_WORK_TREE`, and `GIT_INDEX_FILE`. Disables system and global configs (`GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`). Disables hooks and fsmonitor (`-c core.hooksPath=/dev/null`, `-c core.fsmonitor=false`). Suppresses attribute-driven conversion by writing `* -text -filter -ident -working-tree-encoding` to the shadow repository's `info/attributes`, so snapshots store bytes unchanged. Enforces minimum Git version >= 2.25.0. |
 | **Snapshot Engine** | `src/snapshot.rs` | Creates atomic commits in shadow repo. Stages tracked and untracked files. Preserves ignored files `<= 1 MiB` (e.g., `.env`) while excluding heavy dependencies (`node_modules`, `target`, build artifacts). Prunes nested git repository boundaries from the index to avoid corrupting submodules or nested clones. |
-| **ID Resolution** | `src/ids.rs` | Maps human identifiers (`@0`, `@1`, `@N`), 40-character commit SHAs, and unique SHA prefixes to shadow commits. |
-| **Restore Engine** | `src/restore.rs` | Restores working tree state to match snapshot. Captures pre-restore snapshot `@0`. Calculates additions, modifications, and deletions. Applies file write with conservative permissions (`0600` for files, `0700` for directories/executables). Leaves untouched files and nested repos unmodified. |
+| **ID Resolution** | `src/ids.rs` | Maps `@N` indexes (`@0` is newest) and unique commit prefixes of at least four hex characters (full SHAs included) to shadow commits. |
+| **Restore Engine** | `src/restore.rs` | Restores working tree state to match snapshot. Captures pre-restore snapshot `@0`. Calculates additions, modifications, and deletions. Writes files through `git checkout-index` into a `0700` staging directory, sets regular files to owner read/write plus the executable bits Git wrote (`0600`, or `0711` for executables under a `022` umask), and renames them into place. Leaves untouched files and nested repos unmodified. |
 | **View Engine** | `src/view.rs` | Implements `undo list`, `undo diff`, and `undo status`. Formats relative timestamps (e.g., `42s ago`, `3m ago`) and parses snapshot commit headers. |
-| **Pruning Engine** | `src/prune.rs` | Background lifecycle manager. Retains snapshots according to decay policy: keep all snapshots for 7 days, 1/hour for days 7–30, while observing storage capacity limits. |
-| **Hook Manager** | `src/init.rs` | Installs shell integration scripts (`undo.bash`, `undo.zsh`, `undo.fish`) and injects the `PreToolUse` hook into `~/.claude/settings.json` with backup preservation. |
-| **Logging** | `src/log.rs` | Non-panicking append logger for errors and warnings. Automatically truncates log files to 1 MiB while preserving recent history. |
+| **Pruning Engine** | `src/prune.rs` | Background lifecycle manager. Retains snapshots according to decay policy: keep all snapshots for 7 days, 1/hour for days 7–30, drop older ones, and drop the oldest while a root exceeds its 2 GiB cap. |
+| **Hook Manager** | `src/init.rs` | Prints the embedded shell hooks (`undo.bash`, `undo.zsh`, `undo.fish`) for `eval` or `source`, and merges the `PreToolUse` hook into `~/.claude/settings.json` with backup preservation. |
+| **Logging** | `src/log.rs` | Non-panicking append logger for errors and warnings. When the log exceeds 1 MiB, keeps only its newest 512 KiB. |
 
 ---
 
@@ -79,10 +79,10 @@ sequenceDiagram
         Snap-->>User/Hook: Silent Exit 0
     else Root resolved
         Snap->>Lock: acquire(repo, deadline: 2s)
-        Snap->>Git: ls-files / add -A
-        Snap->>Git: check-ignore (include <= 1 MiB ignored, exclude heavy)
+        Snap->>Git: add -A, then drop nested repos from the index
+        Snap->>Git: ls-files -o -i, add -f ignored files <= 1 MiB outside heavy dirs
         Snap->>Git: write-tree
-        alt Tree matches HEAD commit
+        alt Tree matches the latest snapshot's tree
             Snap-->>User/Hook: No-op (Exit 0)
         else State changed
             Snap->>Git: commit-tree with metadata
@@ -102,12 +102,12 @@ sequenceDiagram
     participant Snap as Snapshot Engine
     participant Target as Working Tree
 
-    User->>Restore: run "undo" (defaults to restore @1)
+    User->>Restore: run "undo" (newest snapshot that differs) or "undo restore <id>"
     Restore->>Lock: acquire(repo, deadline: 10s)
-    Restore->>Snap: Resolve ID to target commit SHA
-    Restore->>Snap: capture_tree (create pre-restore snapshot @0)
-    Restore->>Target: Compute diff between target commit and working tree
-    Restore->>Target: Apply changes (write files, delete removed, adjust modes)
+    Restore->>Snap: Resolve explicit ID to target commit SHA
+    Restore->>Snap: Snapshot current tree (pre-restore snapshot @0)
+    Restore->>Target: Compute diff between current tree and target tree
+    Restore->>Target: Delete removed files, then write staged files and rename into place
     Restore-->>User: Print restored file summary
 ```
 
@@ -116,11 +116,11 @@ sequenceDiagram
 ## 4. Security & Safety Invariants
 
 1. **Strict File Permissions:**
-   Shadow repository directories and data files are created with mode `0700` (`rwx------`). Restored regular files inherit mode `0600` (`rw-------`) or `0700` if the executable bit was set in git tree index.
+   The data directory, `repos/`, and each shadow repository directory are mode `0700` (`rwx------`), and the error log is `0600`. Restored regular files are `0600` (`rw-------`) plus the executable bits Git wrote for executable entries, which is `0711` under a `022` umask. Git stores only the executable bit, so original sharing permissions are not restored.
 2. **Nested Repository Protection:**
    Nested git repositories within the project root are discovered and excluded from shadow gitlinks (`git rm --cached`). The restore process strictly avoids traversing or modifying files inside nested git repositories.
 3. **Resource Bounding:**
    - Command timeouts: Watchdog monitors Git child processes and kills long-running calls exceeding deadlines.
    - Ignored file threshold: Ignored files larger than 1 MiB are excluded from snapshots.
-   - Error log capping: Error logs are capped at 1 MiB with tail preservation.
+   - Error log capping: Once the log exceeds 1 MiB, only its newest 512 KiB is kept.
    - Storage pruning: Background pruning cleans obsolete shadow commits automatically.
